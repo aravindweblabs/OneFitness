@@ -33,13 +33,14 @@ class _HomePageState extends State<HomePage> {
   List<dynamic> userDetailsList = [];
   List<dynamic> bookingids = [];
   List<dynamic> bookinglatestId = [];
+  List<dynamic> data = [];
 //  Map<String, dynamic>? userDetails;
 
   @override
   void initState() {
     super.initState();
     fetchBookingId();
-    fetchBookingIdLatest();
+    latestBookingId();
   }
 
   Future<void> fetchBookingId() async {
@@ -50,7 +51,16 @@ class _HomePageState extends State<HomePage> {
       });
       int id = bookingids.isNotEmpty ? bookingids[0]['id'] : -1;
 
-      await fetchUserDetails(id);
+      // await fetchUserDetails(id);//displaying user plans
+       //fetchData(id); //displaying plans
+
+     /* if (bookingids.isNotEmpty) {
+        int id = bookingids[0]['id'];
+        await fetchUserDetails(id); // Display user details
+      } else {
+        fetchData(-1); // Fetch plans when no booking ID is available
+      }*/
+
     } else {
       throw Exception('Failed to load Booking id');
     }
@@ -71,28 +81,56 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> fetchBookingIdLatest() async {
+  Future<void> latestBookingId() async {
     var response = await http.get(Uri.parse('http://$ipAddress/$ProjectName/latestBookingId.php?userid=${widget.uid}'));
     if (response.statusCode == 200) {
       setState(() {
         bookinglatestId = jsonDecode(response.body);
       });
+      int id = bookinglatestId.isNotEmpty ? bookingids[0]['id'] : -1;
+     // await fetchUserDetails(id); tried
+      if (bookinglatestId.isNotEmpty) {
+        int id = bookinglatestId[0]['id'];
+        await fetchUserDetails(id); // Display user details
+      } else {
+        fetchData(-1); // Fetch plans when no booking ID is available
+      }
     } else {
       throw Exception('Failed to load Booking id');
     }
   }
 
-  Future<void> fetchData() async {
-    final response = await http.get(Uri.parse('http://$ipAddress/$ProjectName/plans.php'));
-    if (response.statusCode == 200) {
-      final List<dynamic> responseData = jsonDecode(response.body);
-      setState(() {
-        plans = responseData.map((json) => Plan.fromJson(json)).toList();
-      });
-    } else {
-      throw Exception('Failed to load data');
+  void fetchData(int id) async {
+
+    String url = 'http://$ipAddress/$ProjectName/booking-details.php';
+    Map<String, String> headers = {"Content-type": "application/json"};
+
+    try {
+      http.Response response = await http.get(Uri.parse('$url?bookingid=$id'), headers: headers);
+      if (response.statusCode == 200) {
+        setState(() {
+          data = json.decode(response.body);
+        });
+        return; // Booking details fetched successfully, exit the function
+      }
+    } catch (e) {
+      print('Error fetching booking details: $e');
+    }
+
+    // If booking details couldn't be fetched or are empty, fetch plans
+    try {
+      http.Response response = await http.get(Uri.parse(url), headers: headers);
+      if (response.statusCode == 200) {
+        setState(() {
+          data = json.decode(response.body);
+        });
+      }
+    } catch (e) {
+      print('Error fetching plans: $e');
     }
   }
+
+
 
   void _showLogoutConfirmationDialog(BuildContext context) {
     showDialog(
@@ -228,7 +266,7 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(
                           builder: (context) => PlansPage(
                             uid: widget.uid,
-                            // latestBookingId: latestBookingId,
+                           // latestBookingId: latestBookingId,
                             //durationDate: durationDate,//working when there is a booking
                             durationDate: userDetailsList.isNotEmpty && userDetailsList[0]['bookingdate'] != null
                                 ? calculateDurationDate(userDetailsList[0]['bookingdate'], userDetailsList[0]['PackageDuration'])
@@ -280,15 +318,15 @@ class _HomePageState extends State<HomePage> {
           )
       ),
 
-      body: SingleChildScrollView(
+      body: Expanded(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HomeSlider(),
-              SizedBox(height: 25),
-              Center(
+            //  HomeSlider(),
+              const SizedBox(height: 25),
+              const Center(
                 child: Text(
                   'Your Plans',
                   style: TextStyle(
@@ -297,202 +335,206 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              SizedBox(height: 25),
-              if (userDetailsList.isNotEmpty)
-                Expanded(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: userDetailsList.length,
-                    itemBuilder: (context, index) {
-                      var userDetails = userDetailsList[index];
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ListTile(
-                            title: Row(
-                              children: [
-                                Text(
-                                  'Email:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+              const SizedBox(height: 25),
+              Expanded(
+                child:
+                userDetailsList.isNotEmpty
+                    ? ListView.builder(
+                  itemCount: userDetailsList.length,
+                  itemBuilder: (context, index) {
+                    var userDetails = userDetailsList[index];
+                    print(userDetails);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Email:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  userDetails['email'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    userDetails['email'] ?? 'N/A',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Booked Date:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Booked Date:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8), // Add spacing between label and data
+                              Expanded(
+                                child: Text(
+                                  userDetails['bookingdate'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8), // Add spacing between label and data
-                                Expanded(
-                                  child: Text(
-                                    userDetails['bookingdate'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Title:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Title:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8), // Add spacing between label and data
+                              Expanded(
+                                child: Text(
+                                  userDetails['title'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8), // Add spacing between label and data
-                                Expanded(
-                                  child: Text(
-                                    userDetails['title'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Package Duration:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Package Duration:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8), // Add spacing between label and data
+                              Expanded(
+                                child: Text(
+                                  userDetails['PackageDuration'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8), // Add spacing between label and data
-                                Expanded(
-                                  child: Text(
-                                    userDetails['PackageDuration'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Price:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Price:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8), // Add spacing between label and data
+                              Expanded(
+                                child: Text(
+                                  userDetails['Price'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8), // Add spacing between label and data
-                                Expanded(
-                                  child: Text(
-                                    userDetails['Price'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Description:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Description:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8), // Add spacing between label and data
+                              Expanded(
+                                child: Text(
+                                  userDetails['Description'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8), // Add spacing between label and data
-                                Expanded(
-                                  child: Text(
-                                    userDetails['Description'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Category Name:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Category Name:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8), // Add spacing between label and data
+                              Expanded(
+                                child: Text(
+                                  userDetails['category_name'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8), // Add spacing between label and data
-                                Expanded(
-                                  child: Text(
-                                    userDetails['category_name'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          ListTile(
-                            title: Row(
-                              children: [
-                                const Text(
-                                  'Package Name:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                        ),
+                        ListTile(
+                          title: Row(
+                            children: [
+                              const Text(
+                                'Package Name:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  userDetails['PackageName'] ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    userDetails['PackageName'] ?? 'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ],
+                    );
+                  },
                 )
-              else
-               // Text("no plans"),
-                PlansPage(uid: widget.uid, durationDate: DateTime.now().toString()),
-              //  ),
+                    :  Center(
+                //  child: Text('No current plans'),
+                    child: PlansPage( uid: widget.uid,
+                    durationDate:DateTime.now().toString(),
+                ),
+                ),
+              ),
             ],
           ),
         ),
