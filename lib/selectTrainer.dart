@@ -14,16 +14,20 @@ class SelectTrainer extends StatefulWidget {
 
 class _SelectTrainerState extends State<SelectTrainer> {
   late Future<List<Trainer>> _trainersFuture;
+  List<dynamic> yourTrainerDetails = [];
 
   @override
   void initState() {
     super.initState();
     _trainersFuture = fetchTrainers();
+    yourTrainer();
   }
 
   Future<List<Trainer>> fetchTrainers() async {
     final response = await http.get(
-        Uri.parse('http://$ipAddress/$ProjectName/getTrainerDetails.php?userid=${widget.uid}'));
+        Uri.parse(
+            'http://$ipAddress/$ProjectName/getTrainerDetails.php?userid=${widget
+                .uid}'));
 
     if (response.statusCode == 200) {
       final List<dynamic> jsonResponse = json.decode(response.body);
@@ -37,7 +41,7 @@ class _SelectTrainerState extends State<SelectTrainer> {
     // Send the trainer ID to the PHP code using HTTP request
     var response = await http.post(
       Uri.parse('http://$ipAddress/$ProjectName/addTrainerToUser.php'),
-     // headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      // headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {
         'trainerId': trainerId.toString(),
         'userid': widget.uid.toString(),
@@ -50,6 +54,26 @@ class _SelectTrainerState extends State<SelectTrainer> {
       print('Failed to select trainer');
     }
   }
+
+
+  Future<void> yourTrainer() async {
+    try {
+      var response = await http.get(Uri.parse(
+          'http://$ipAddress/$ProjectName/yourTrainer.php?userid=${widget
+              .uid}'));
+      if (response.statusCode == 200) {
+        setState(() {
+          yourTrainerDetails = jsonDecode(response.body);
+        });
+      } else {
+        throw Exception('Failed to load trainer details: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error fetching user details: $error');
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -68,56 +92,85 @@ class _SelectTrainerState extends State<SelectTrainer> {
           } else {
             List<Trainer>? trainers = snapshot.data;
             return ListView.builder(
-              itemCount: trainers!.length,
+              itemCount: trainers!.length + 1,
               itemBuilder: (context, index) {
-                Trainer trainer = trainers[index];
-                return ListTile(
-                  title: Text('${trainer.fname} ${trainer.lname}'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Expertise: ${trainer.expertise}'),
-                      Text('Email: ${trainer.email}'),
-                      Text('Phone: ${trainer.phno}'),
-                    ],
-                  ),
-                  trailing: ElevatedButton(
-                    onPressed: () {
-                      // Show a confirmation dialog
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: Text('Confirm Selection'),
-                            content: Text('Do you want to select ${trainer.fname} ${trainer.lname}?'),
-                            actions: <Widget>[
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                                child: Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  selectTrainer(trainer.trainerId);
-                                  Navigator.of(context).pop();
-                                },
-                                style: ButtonStyle(
-                                  backgroundColor: MaterialStateProperty.all<Color>(const Color(0xFFB070FA)),
-                                ),
-                                child: Text('OK'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    style: ButtonStyle(
-                      backgroundColor: MaterialStateProperty.all<Color>(const Color(0xFFB070FA)),
+                if (index < trainers.length) {
+                  Trainer trainer = trainers[index];
+                  return ListTile(
+                    title: Text('${trainer.fname} ${trainer.lname}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Expertise: ${trainer.expertise}'),
+                        Text('Email: ${trainer.email}'),
+                        Text('Phone: ${trainer.phno}'),
+                      ],
                     ),
-                    child: Text('Select'),
-                  ),
-                );
+                    trailing: ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text('Confirm Selection'),
+                              content: Text('Do you want to select ${trainer
+                                  .fname} ${trainer.lname}?'),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    selectTrainer(trainer.trainerId);
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: ButtonStyle(
+                                    backgroundColor: MaterialStateProperty.all<
+                                        Color>(const Color(0xFFB070FA)),
+                                  ),
+                                  child: Text('OK'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      style: ButtonStyle(
+                        backgroundColor: MaterialStateProperty.all<Color>(
+                            const Color(0xFFB070FA)),
+                      ),
+                      child: Text('Select'),
+                    ),
+                  );
+                }else {
+                  if (yourTrainerDetails.isNotEmpty) {
+                    Map<String, dynamic> trainerDetails = yourTrainerDetails.first;
+                    return Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Trainer',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text('Name: ${trainerDetails['fname']} ${trainerDetails['lname']}'),
+                          Text('Email: ${trainerDetails['email']}'),
+                          Text('Phone Number: ${trainerDetails['phno']}'),
+                          Text('Expertise: ${trainerDetails['expertise']}'),
+                        ],
+                      ),
+                    );
+                  } else {
+                    const Text('No trainer selected');
+                  }
+                }
               },
             );
           }

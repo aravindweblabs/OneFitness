@@ -1,9 +1,9 @@
 //String ipAddress = '185.199.52.133';//insta clean
 //String ipAddress = '192.168.29.123';//laptop ip
-String ipAddress = '192.168.29.123';
-String ProjectName ='onefitness1new';
-/*String ipAddress = 'raisingwealth.org';
+/*String ipAddress = '192.168.29.123';
 String ProjectName ='onefitness1new';*/
+String ipAddress = 'raisingwealth.org';
+String ProjectName ='onefitness1new';
 
 //onefitnessflutter  162.215.254.72
 //onefitness1new
